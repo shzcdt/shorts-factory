@@ -1,0 +1,28 @@
+[project]
+name = "clip-pilot"
+version = "0.1.0"
+description = "Turn long videos into YouTube Shorts and auto-publish them."
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML",
+    "python-dotenv",
+    "watchdog",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "APScheduler",
+    "PySceneDetect",
+    "opencv-python",
+    "faster-whisper",
+    "yt-dlp",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["clip_pilot*"]

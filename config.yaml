@@ -1,0 +1,19 @@
+paths:
+  inbox: data/inbox
+  clips: data/clips
+  review: data/review
+  published: data/published
+  logs: logs
+  db: data/db.sqlite3
+
+video:
+  max_clip_seconds: 60
+  fps: 30
+  min_clip_seconds: 15
+
+logging:
+  level: INFO
+  format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+
+review:
+  default_mode: manual
