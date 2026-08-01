@@ -1,9 +1,11 @@
 """Command-line entry point for the clip-pilot package."""
 
 import argparse
+import io
 import logging
 import sqlite3
 import sys
+from typing import cast
 
 from clip_pilot import db
 from clip_pilot.config import Config
@@ -25,8 +27,9 @@ def main() -> None:
     """Parse CLI arguments, bootstrap and run the requested command."""
     for stream in (sys.stdout, sys.stderr):
         try:
-            stream.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
+            wrapper = cast(io.TextIOWrapper, stream)
+            wrapper.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
             pass
 
     parser = argparse.ArgumentParser(prog="clip-pilot")
@@ -36,6 +39,7 @@ def main() -> None:
     subparsers.add_parser("watch", help="Watch the inbox folder and ingest new videos")
     subparsers.add_parser("scan", help="Scan the inbox folder once and ingest new videos")
     subparsers.add_parser("analyze", help="Analyze new sources with ffprobe")
+    subparsers.add_parser("segment", help="Segment analyzed sources into clip candidates")
     retry_parser = subparsers.add_parser("retry", help="Reset a source for re-analysis")
     retry_parser.add_argument("source_id", type=int, help="Source id to reset")
     args = parser.parse_args()
@@ -63,6 +67,11 @@ def main() -> None:
 
         count = analyze_new_sources(conn, config)
         logger.info("Analyzed %s source(s)", count)
+    elif args.command == "segment":
+        from clip_pilot.segmenter import segment_done_sources
+
+        count = segment_done_sources(conn, config)
+        logger.info("Segmented %s source(s)", count)
     elif args.command == "retry":
         from clip_pilot.analyzer import retry_source
 

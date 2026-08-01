@@ -34,29 +34,39 @@ class TestParseResolution(unittest.TestCase):
 
 class TestProbeFile(unittest.TestCase):
     def _ffprobe_json(self):
-        return json.dumps({
-            "format": {"duration": "100.0"},
-            "streams": [{"codec_type": "video", "width": 1920, "height": 1080,
-                         "r_frame_rate": "30000/1001"}],
-        })
+        return json.dumps(
+            {
+                "format": {"duration": "100.0"},
+                "streams": [
+                    {
+                        "codec_type": "video",
+                        "width": 1920,
+                        "height": 1080,
+                        "r_frame_rate": "30000/1001",
+                    }
+                ],
+            }
+        )
 
     def test_parses_metadata(self):
-        with mock.patch("clip_pilot.probe.subprocess.run",
-                        return_value=SimpleNamespace(returncode=0,
-                                                     stdout=self._ffprobe_json(), stderr="")):
+        with mock.patch(
+            "clip_pilot.probe.subprocess.run",
+            return_value=SimpleNamespace(returncode=0, stdout=self._ffprobe_json(), stderr=""),
+        ):
             meta = probe_file(Path("v.mp4"))
         self.assertEqual(meta["duration_seconds"], 100.0)
         self.assertEqual(meta["resolution"], "1920x1080")
         self.assertAlmostEqual(meta["fps"], 29.97, places=2)
 
     def test_nonzero_returncode(self):
-        with mock.patch("clip_pilot.probe.subprocess.run",
-                        return_value=SimpleNamespace(returncode=1, stdout="", stderr="boom")):
+        with mock.patch(
+            "clip_pilot.probe.subprocess.run",
+            return_value=SimpleNamespace(returncode=1, stdout="", stderr="boom"),
+        ):
             self.assertIsNone(probe_file(Path("v.mp4")))
 
     def test_missing_binary(self):
-        with mock.patch("clip_pilot.probe.subprocess.run",
-                        side_effect=OSError("no such file")):
+        with mock.patch("clip_pilot.probe.subprocess.run", side_effect=OSError("no such file")):
             self.assertIsNone(probe_file(Path("v.mp4")))
 
 

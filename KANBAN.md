@@ -21,7 +21,8 @@ kanban-plugin: board
 - [x] **T2** SQLite-хранилище: sources, clips, accounts, posts, settings + миграции — M · критич
 - [x] **T3** Вотчер папки (watchdog): новый файл → задача analyze — M · критич
 - [x] **T4** ffprobe-метаданные: длительность, разрешение, fps — S
-- [ ] **T5** Нарезка по сценам (PySceneDetect) → сегменты — M
+- [x] **T5** Нарезка по сценам (PySceneDetect) → сегменты — M
+- [ ] **T25** Инструменты качества: ruff + mypy + pre-commit — S · следующая после T5
 - [ ] **T9** ffmpeg-конвейер: 9:16, кроп/автозум, обрезка тишины — M · критич
 - [ ] **T12** Ревью-папка + команда `clip_pilot review` — M · критич
 - [ ] **T14** OAuth-приложение + refresh-токены (1–2 аккаунта) — M · критич

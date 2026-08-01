@@ -6,8 +6,8 @@ import sqlite3
 from clip_pilot import repo
 from clip_pilot.config import Config
 from clip_pilot.constants import (
-    EVENT_SOURCE_ANALYZED,
     EVENT_SOURCE_ANALYZE_FAILED,
+    EVENT_SOURCE_ANALYZED,
     EVENT_SOURCE_RETRIED,
     EVENT_SOURCE_SKIPPED_TOO_SHORT,
     SOURCE_STATUS_DONE,
@@ -43,11 +43,16 @@ def analyze_source(conn: sqlite3.Connection, source_id: int, config: Config) -> 
     ffprobe_path = config.video.get("ffprobe_path", "ffprobe")
     metadata = probe_file(source["file_path"], ffprobe_path)
     if metadata is None:
-        repo.update_source_status(conn, source_id, SOURCE_STATUS_FAILED,
-                                  error="ffprobe could not read the file")
-        repo.add_event(conn, entity_type="source", entity_id=source_id,
-                       event_type=EVENT_SOURCE_ANALYZE_FAILED,
-                       payload={"file_path": source["file_path"]})
+        repo.update_source_status(
+            conn, source_id, SOURCE_STATUS_FAILED, error="ffprobe could not read the file"
+        )
+        repo.add_event(
+            conn,
+            entity_type="source",
+            entity_id=source_id,
+            event_type=EVENT_SOURCE_ANALYZE_FAILED,
+            payload={"file_path": source["file_path"]},
+        )
         conn.commit()
         logger.error("Source %s analysis failed", source_id)
         return SOURCE_STATUS_FAILED
@@ -55,34 +60,50 @@ def analyze_source(conn: sqlite3.Connection, source_id: int, config: Config) -> 
     min_seconds = config.video.get("min_clip_seconds", 15)
     duration = metadata["duration_seconds"]
     if duration is not None and duration < min_seconds:
-        repo.update_source_status(conn, source_id, SOURCE_STATUS_SKIPPED,
-                                  error="shorter than min_clip_seconds")
-        repo.add_event(conn, entity_type="source", entity_id=source_id,
-                       event_type=EVENT_SOURCE_SKIPPED_TOO_SHORT,
-                       payload={"file_path": source["file_path"],
-                                "duration_seconds": duration})
+        repo.update_source_status(
+            conn, source_id, SOURCE_STATUS_SKIPPED, error="shorter than min_clip_seconds"
+        )
+        repo.add_event(
+            conn,
+            entity_type="source",
+            entity_id=source_id,
+            event_type=EVENT_SOURCE_SKIPPED_TOO_SHORT,
+            payload={"file_path": source["file_path"], "duration_seconds": duration},
+        )
         conn.commit()
-        logger.info("Source %s skipped: too short (%.1fs < %.1fs)",
-                    source_id, duration, min_seconds)
+        logger.info(
+            "Source %s skipped: too short (%.1fs < %.1fs)", source_id, duration, min_seconds
+        )
         return SOURCE_STATUS_SKIPPED
 
     repo.update_source_metadata(
-        conn, source_id,
+        conn,
+        source_id,
         duration_seconds=metadata["duration_seconds"],
         resolution=metadata["resolution"],
         fps=metadata["fps"],
         metadata_json=metadata["metadata_json"],
     )
     repo.update_source_status(conn, source_id, SOURCE_STATUS_DONE)
-    repo.add_event(conn, entity_type="source", entity_id=source_id,
-                   event_type=EVENT_SOURCE_ANALYZED,
-                   payload={"file_path": source["file_path"],
-                            "duration_seconds": metadata["duration_seconds"],
-                            "resolution": metadata["resolution"]})
+    repo.add_event(
+        conn,
+        entity_type="source",
+        entity_id=source_id,
+        event_type=EVENT_SOURCE_ANALYZED,
+        payload={
+            "file_path": source["file_path"],
+            "duration_seconds": metadata["duration_seconds"],
+            "resolution": metadata["resolution"],
+        },
+    )
     conn.commit()
-    logger.info("Source %s analyzed: %.1fs %s @ %.2f fps",
-                source_id, metadata["duration_seconds"] or 0.0,
-                metadata["resolution"], metadata["fps"] or 0.0)
+    logger.info(
+        "Source %s analyzed: %.1fs %s @ %.2f fps",
+        source_id,
+        metadata["duration_seconds"] or 0.0,
+        metadata["resolution"],
+        metadata["fps"] or 0.0,
+    )
     return SOURCE_STATUS_DONE
 
 
@@ -118,13 +139,16 @@ def retry_source(conn: sqlite3.Connection, source_id: int) -> bool:
         logger.warning("Source %s not found", source_id)
         return False
     if source["status"] not in RETRYABLE_STATUSES:
-        logger.warning("Source %s has status '%s', not retryable",
-                       source_id, source["status"])
+        logger.warning("Source %s has status '%s', not retryable", source_id, source["status"])
         return False
     repo.update_source_status(conn, source_id, SOURCE_STATUS_NEW, error=None)
-    repo.add_event(conn, entity_type="source", entity_id=source_id,
-                   event_type=EVENT_SOURCE_RETRIED,
-                   payload={"previous_status": source["status"]})
+    repo.add_event(
+        conn,
+        entity_type="source",
+        entity_id=source_id,
+        event_type=EVENT_SOURCE_RETRIED,
+        payload={"previous_status": source["status"]},
+    )
     conn.commit()
     logger.info("Source %s reset to new (was %s)", source_id, source["status"])
     return True

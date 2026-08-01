@@ -28,7 +28,7 @@ class Config:
         Returns:
             Parsed Config instance.
         """
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return cls(data)
 

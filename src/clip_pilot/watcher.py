@@ -30,14 +30,10 @@ def detect_video_files(inbox: Path, extensions: tuple[str, ...] = VIDEO_EXTENSIO
     """
     if not inbox.is_dir():
         return []
-    return sorted(
-        p for p in inbox.iterdir()
-        if p.is_file() and p.suffix.lower() in extensions
-    )
+    return sorted(p for p in inbox.iterdir() if p.is_file() and p.suffix.lower() in extensions)
 
 
-def is_file_settled(path: Path, settle_seconds: float = 2.0,
-                    check_interval: float = 0.5) -> bool:
+def is_file_settled(path: Path, settle_seconds: float = 2.0, check_interval: float = 0.5) -> bool:
     """Return True if the file size stays stable for settle_seconds.
 
     Args:
@@ -110,8 +106,9 @@ def scan_inbox(conn: sqlite3.Connection, config: Config) -> int:
         if not is_file_settled(path, settle_seconds):
             logger.debug("File not settled, skipping: %s", path)
             continue
-        source_id = ingest_file(conn, path, hash_chunk_bytes=hash_chunk_bytes,
-                                review_mode=review_mode)
+        source_id = ingest_file(
+            conn, path, hash_chunk_bytes=hash_chunk_bytes, review_mode=review_mode
+        )
         if source_id is None:
             continue
         destination = move_to_staging(path, staging)

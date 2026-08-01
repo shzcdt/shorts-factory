@@ -61,12 +61,24 @@ def probe_file(path: Path, ffprobe_path: str = "ffprobe") -> dict | None:
         Dict with duration_seconds, resolution, fps and raw metadata_json,
         or None if probing failed.
     """
-    cmd = [ffprobe_path, "-v", "error", "-print_format", "json",
-           "-show_format", "-show_streams", str(path)]
+    cmd = [
+        ffprobe_path,
+        "-v",
+        "error",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        str(path),
+    ]
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", check=False,
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
     except OSError as exc:
         logger.error("Cannot run ffprobe (%s): %s", ffprobe_path, exc)
@@ -80,9 +92,7 @@ def probe_file(path: Path, ffprobe_path: str = "ffprobe") -> dict | None:
         logger.error("Cannot parse ffprobe output for %s: %s", path, exc)
         return None
 
-    video_stream = next(
-        (s for s in raw.get("streams", []) if s.get("codec_type") == "video"), None
-    )
+    video_stream = next((s for s in raw.get("streams", []) if s.get("codec_type") == "video"), None)
     duration_raw = raw.get("format", {}).get("duration")
     try:
         duration = float(duration_raw) if duration_raw else None

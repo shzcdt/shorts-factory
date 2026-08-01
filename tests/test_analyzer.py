@@ -11,20 +11,22 @@ from clip_pilot.config import Config
 
 
 def make_config(root: Path, min_clip_seconds: float = 15.0) -> Config:
-    return Config({
-        "paths": {
-            "inbox": str(root / "inbox"),
-            "staging": str(root / "staging"),
-            "clips": str(root / "clips"),
-            "review": str(root / "review"),
-            "published": str(root / "published"),
-            "logs": str(root / "logs"),
-            "db": str(root / "db.sqlite3"),
-        },
-        "video": {"min_clip_seconds": min_clip_seconds, "ffprobe_path": "ffprobe"},
-        "watcher": {},
-        "review": {"default_mode": "manual"},
-    })
+    return Config(
+        {
+            "paths": {
+                "inbox": str(root / "inbox"),
+                "staging": str(root / "staging"),
+                "clips": str(root / "clips"),
+                "review": str(root / "review"),
+                "published": str(root / "published"),
+                "logs": str(root / "logs"),
+                "db": str(root / "db.sqlite3"),
+            },
+            "video": {"min_clip_seconds": min_clip_seconds, "ffprobe_path": "ffprobe"},
+            "watcher": {},
+            "review": {"default_mode": "manual"},
+        }
+    )
 
 
 class TestAnalyzer(unittest.TestCase):
@@ -43,8 +45,12 @@ class TestAnalyzer(unittest.TestCase):
 
     def test_analyze_marks_done(self):
         sid = self._add_source()
-        metadata = {"duration_seconds": 120.0, "resolution": "1920x1080", "fps": 30.0,
-                    "metadata_json": {"format": {"duration": "120.0"}}}
+        metadata = {
+            "duration_seconds": 120.0,
+            "resolution": "1920x1080",
+            "fps": 30.0,
+            "metadata_json": {"format": {"duration": "120.0"}},
+        }
         with mock.patch("clip_pilot.analyzer.probe_file", return_value=metadata):
             status = analyze_source(self.conn, sid, self.config)
         self.assertEqual(status, "done")
@@ -56,8 +62,12 @@ class TestAnalyzer(unittest.TestCase):
 
     def test_analyze_skips_too_short(self):
         sid = self._add_source()
-        metadata = {"duration_seconds": 5.0, "resolution": "1920x1080", "fps": 30.0,
-                    "metadata_json": {}}
+        metadata = {
+            "duration_seconds": 5.0,
+            "resolution": "1920x1080",
+            "fps": 30.0,
+            "metadata_json": {},
+        }
         with mock.patch("clip_pilot.analyzer.probe_file", return_value=metadata):
             status = analyze_source(self.conn, sid, self.config)
         self.assertEqual(status, "skipped")
@@ -81,8 +91,12 @@ class TestAnalyzer(unittest.TestCase):
     def test_analyze_new_sources_count(self):
         self._add_source(file_hash="h1")
         self._add_source(file_hash="h2")
-        metadata = {"duration_seconds": 60.0, "resolution": "1080x1920", "fps": 30.0,
-                    "metadata_json": {}}
+        metadata = {
+            "duration_seconds": 60.0,
+            "resolution": "1080x1920",
+            "fps": 30.0,
+            "metadata_json": {},
+        }
         with mock.patch("clip_pilot.analyzer.probe_file", return_value=metadata):
             count = analyze_new_sources(self.conn, self.config)
         self.assertEqual(count, 2)
@@ -104,9 +118,23 @@ class TestAnalyzer(unittest.TestCase):
         if shutil.which("ffmpeg") is None:
             self.skipTest("ffmpeg not available")
         video = self.root / "real.mp4"
-        cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=640x360:d=1",
-               "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-               "-t", "1", "-pix_fmt", "yuv420p", str(video)]
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=640x360:d=1",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=mono",
+            "-t",
+            "1",
+            "-pix_fmt",
+            "yuv420p",
+            str(video),
+        ]
         result = subprocess.run(cmd, capture_output=True)
         if result.returncode != 0:
             self.skipTest("ffmpeg could not generate a test video")

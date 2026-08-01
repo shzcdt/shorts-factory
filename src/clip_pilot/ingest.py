@@ -37,9 +37,13 @@ def compute_file_hash(path: Path, chunk_bytes: int = DEFAULT_HASH_CHUNK_BYTES) -
         return None
 
 
-def ingest_file(conn: sqlite3.Connection, path: Path, *,
-                hash_chunk_bytes: int = DEFAULT_HASH_CHUNK_BYTES,
-                review_mode: str = "manual") -> int | None:
+def ingest_file(
+    conn: sqlite3.Connection,
+    path: Path,
+    *,
+    hash_chunk_bytes: int = DEFAULT_HASH_CHUNK_BYTES,
+    review_mode: str = "manual",
+) -> int | None:
     """Register a video file as a source, skipping duplicates.
 
     Args:
@@ -66,8 +70,12 @@ def ingest_file(conn: sqlite3.Connection, path: Path, *,
             payload={"file_path": str(path)},
         )
         conn.commit()
-        logger.info("Duplicate source skipped: source_id=%s hash=%s file=%s",
-                    existing["id"], file_hash, path)
+        logger.info(
+            "Duplicate source skipped: source_id=%s hash=%s file=%s",
+            existing["id"],
+            file_hash,
+            path,
+        )
         return None
 
     try:

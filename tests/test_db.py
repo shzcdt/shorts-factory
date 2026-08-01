@@ -40,8 +40,12 @@ class TestDb(unittest.TestCase):
     def test_clip_flow(self):
         sid = repo.create_source(self.conn, file_path="v.mp4", file_hash="h1")
         cid = repo.create_clip(
-            self.conn, source_id=sid, start_time=0, end_time=60,
-            suggested_title="Test", hashtags=["#shorts"],
+            self.conn,
+            source_id=sid,
+            start_time=0,
+            end_time=60,
+            suggested_title="Test",
+            hashtags=["#shorts"],
         )
         self.conn.commit()
         clips = repo.get_clips_by_status(self.conn, "cut")
@@ -75,7 +79,9 @@ class TestDb(unittest.TestCase):
         self.assertEqual(posts[0]["attempts"], 1)
 
     def test_events(self):
-        repo.add_event(self.conn, entity_type="source", entity_id=1, event_type="created", payload={"k": "v"})
+        repo.add_event(
+            self.conn, entity_type="source", entity_id=1, event_type="created", payload={"k": "v"}
+        )
         self.conn.commit()
         events = repo.get_events(self.conn, entity_type="source")
         self.assertEqual(len(events), 1)

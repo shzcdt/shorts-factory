@@ -12,6 +12,10 @@ video:
   fps: 30
   min_clip_seconds: 15
   ffprobe_path: ffprobe
+  scene:
+    detector: content
+    threshold: 27.0
+    min_scene_seconds: 3.0
 
 watcher:
   scan_interval_seconds: 3

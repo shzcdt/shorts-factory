@@ -1,7 +1,7 @@
 """SQLite connection handling and schema migrations."""
 
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 

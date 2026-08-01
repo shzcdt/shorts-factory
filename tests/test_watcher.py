@@ -8,24 +8,26 @@ from clip_pilot.watcher import detect_video_files, is_file_settled, scan_inbox
 
 
 def make_config(root: Path) -> Config:
-    return Config({
-        "paths": {
-            "inbox": str(root / "inbox"),
-            "staging": str(root / "staging"),
-            "clips": str(root / "clips"),
-            "review": str(root / "review"),
-            "published": str(root / "published"),
-            "logs": str(root / "logs"),
-            "db": str(root / "db.sqlite3"),
-        },
-        "watcher": {
-            "scan_interval_seconds": 1,
-            "settle_seconds": 0.2,
-            "hash_chunk_mb": 1,
-            "extensions": [".mp4", ".mov"],
-        },
-        "review": {"default_mode": "manual"},
-    })
+    return Config(
+        {
+            "paths": {
+                "inbox": str(root / "inbox"),
+                "staging": str(root / "staging"),
+                "clips": str(root / "clips"),
+                "review": str(root / "review"),
+                "published": str(root / "published"),
+                "logs": str(root / "logs"),
+                "db": str(root / "db.sqlite3"),
+            },
+            "watcher": {
+                "scan_interval_seconds": 1,
+                "settle_seconds": 0.2,
+                "hash_chunk_mb": 1,
+                "extensions": [".mp4", ".mov"],
+            },
+            "review": {"default_mode": "manual"},
+        }
+    )
 
 
 class TestWatcher(unittest.TestCase):
@@ -67,8 +69,9 @@ class TestWatcher(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertFalse(video.exists())
         self.assertEqual(len(sources), 1)
-        self.assertEqual(Path(sources[0]["file_path"]),
-                         self.config.get_path("staging") / "clip.mp4")
+        self.assertEqual(
+            Path(sources[0]["file_path"]), self.config.get_path("staging") / "clip.mp4"
+        )
 
 
 if __name__ == "__main__":
