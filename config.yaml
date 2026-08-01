@@ -11,6 +11,7 @@ video:
   max_clip_seconds: 60
   fps: 30
   min_clip_seconds: 15
+  ffprobe_path: ffprobe
 
 watcher:
   scan_interval_seconds: 3

@@ -41,12 +41,37 @@ def get_source(conn: sqlite3.Connection, source_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def get_sources_by_status(conn: sqlite3.Connection, status: str) -> list[dict]:
+    """Return all sources in a given status, ordered by creation time."""
+    rows = conn.execute(
+        "SELECT * FROM sources WHERE status = ? ORDER BY created_at", (status,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def update_source_status(conn: sqlite3.Connection, source_id: int, status: str,
                          error: str | None = None) -> None:
     """Update a source status and optionally record the error."""
     conn.execute(
         "UPDATE sources SET status = ?, error = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, error, source_id),
+    )
+
+
+def update_source_path(conn: sqlite3.Connection, source_id: int, file_path: str) -> None:
+    """Update the stored file path of a source."""
+    conn.execute("UPDATE sources SET file_path = ? WHERE id = ?", (file_path, source_id))
+
+
+def update_source_metadata(conn: sqlite3.Connection, source_id: int, *,
+                           duration_seconds: float | None, resolution: str | None,
+                           fps: float | None, metadata_json: dict) -> None:
+    """Update probing metadata for a source."""
+    conn.execute(
+        "UPDATE sources SET duration_seconds = ?, resolution = ?, fps = ?, metadata_json = ? "
+        "WHERE id = ?",
+        (duration_seconds, resolution, fps,
+         json.dumps(metadata_json, ensure_ascii=False) if metadata_json else None, source_id),
     )
 
 

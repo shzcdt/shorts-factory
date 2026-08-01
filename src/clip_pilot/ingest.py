@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 
 from clip_pilot import repo
+from clip_pilot.constants import EVENT_SOURCE_CREATED, EVENT_SOURCE_DUPLICATE_SKIPPED
 
 logger = logging.getLogger("clip_pilot.ingest")
 
@@ -61,7 +62,7 @@ def ingest_file(conn: sqlite3.Connection, path: Path, *,
             conn,
             entity_type="source",
             entity_id=existing["id"],
-            event_type="duplicate_skipped",
+            event_type=EVENT_SOURCE_DUPLICATE_SKIPPED,
             payload={"file_path": str(path)},
         )
         conn.commit()
@@ -81,7 +82,7 @@ def ingest_file(conn: sqlite3.Connection, path: Path, *,
             conn,
             entity_type="source",
             entity_id=source_id,
-            event_type="created",
+            event_type=EVENT_SOURCE_CREATED,
             payload={"file_path": str(path), "file_hash": file_hash},
         )
         conn.commit()

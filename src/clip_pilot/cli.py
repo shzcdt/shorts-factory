@@ -35,6 +35,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("watch", help="Watch the inbox folder and ingest new videos")
     subparsers.add_parser("scan", help="Scan the inbox folder once and ingest new videos")
+    subparsers.add_parser("analyze", help="Analyze new sources with ffprobe")
+    retry_parser = subparsers.add_parser("retry", help="Reset a source for re-analysis")
+    retry_parser.add_argument("source_id", type=int, help="Source id to reset")
     args = parser.parse_args()
 
     if args.version:
@@ -55,5 +58,17 @@ def main() -> None:
 
         count = scan_inbox(conn, config)
         logger.info("Ingested %s new source(s)", count)
+    elif args.command == "analyze":
+        from clip_pilot.analyzer import analyze_new_sources
+
+        count = analyze_new_sources(conn, config)
+        logger.info("Analyzed %s source(s)", count)
+    elif args.command == "retry":
+        from clip_pilot.analyzer import retry_source
+
+        if retry_source(conn, args.source_id):
+            logger.info("Source %s reset. Run 'analyze' to reprocess it.", args.source_id)
+        else:
+            logger.warning("Source %s could not be reset", args.source_id)
     else:
         logger.info("ClipPilot initialized. config=%s", args.config)

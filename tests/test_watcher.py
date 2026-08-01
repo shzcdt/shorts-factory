@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from clip_pilot import db
+from clip_pilot import db, repo
 from clip_pilot.config import Config
 from clip_pilot.watcher import detect_video_files, is_file_settled, scan_inbox
 
@@ -62,10 +62,13 @@ class TestWatcher(unittest.TestCase):
         video = self.inbox / "clip.mp4"
         video.write_bytes(b"x" * 100)
         count = scan_inbox(conn, self.config)
+        sources = repo.get_sources_by_status(conn, "new")
         conn.close()
         self.assertEqual(count, 1)
         self.assertFalse(video.exists())
-        self.assertTrue((self.config.get_path("staging") / "clip.mp4").exists())
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(Path(sources[0]["file_path"]),
+                         self.config.get_path("staging") / "clip.mp4")
 
 
 if __name__ == "__main__":

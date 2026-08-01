@@ -9,6 +9,7 @@ import sqlite3
 import time
 from pathlib import Path
 
+from clip_pilot import repo
 from clip_pilot.config import Config
 from clip_pilot.ingest import ingest_file
 
@@ -113,8 +114,12 @@ def scan_inbox(conn: sqlite3.Connection, config: Config) -> int:
                                 review_mode=review_mode)
         if source_id is None:
             continue
-        if move_to_staging(path, staging) is None:
+        destination = move_to_staging(path, staging)
+        if destination is None:
             logger.warning("Source %s registered but file could not be moved", source_id)
+        else:
+            repo.update_source_path(conn, source_id, str(destination))
+            conn.commit()
         ingested += 1
     return ingested
 
