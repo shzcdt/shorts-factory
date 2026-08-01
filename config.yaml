@@ -16,6 +16,10 @@ video:
     detector: content
     threshold: 27.0
     min_scene_seconds: 3.0
+  formatting:
+    width: 1080
+    height: 1920
+    strategy: center_crop
 
 watcher:
   scan_interval_seconds: 3

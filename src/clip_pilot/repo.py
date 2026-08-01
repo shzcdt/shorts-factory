@@ -190,6 +190,14 @@ def update_clip_status(
     )
 
 
+def update_clip_path(conn: sqlite3.Connection, clip_id: int, path: str) -> None:
+    """Store the formatted clip file path."""
+    conn.execute(
+        "UPDATE clips SET path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (path, clip_id),
+    )
+
+
 def create_account(
     conn: sqlite3.Connection,
     *,

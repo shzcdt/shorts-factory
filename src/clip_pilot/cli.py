@@ -40,6 +40,13 @@ def main() -> None:
     subparsers.add_parser("scan", help="Scan the inbox folder once and ingest new videos")
     subparsers.add_parser("analyze", help="Analyze new sources with ffprobe")
     subparsers.add_parser("segment", help="Segment analyzed sources into clip candidates")
+    format_parser = subparsers.add_parser("format", help="Format cut clips with ffmpeg")
+    format_parser.add_argument(
+        "--limit", type=int, default=None, help="Maximum number of clips to format"
+    )
+    format_parser.add_argument(
+        "--source-id", type=int, default=None, help="Only format clips of this source"
+    )
     retry_parser = subparsers.add_parser("retry", help="Reset a source for re-analysis")
     retry_parser.add_argument("source_id", type=int, help="Source id to reset")
     args = parser.parse_args()
@@ -72,6 +79,11 @@ def main() -> None:
 
         count = segment_done_sources(conn, config)
         logger.info("Segmented %s source(s)", count)
+    elif args.command == "format":
+        from clip_pilot.formatter import format_cut_clips
+
+        count = format_cut_clips(conn, config, limit=args.limit, source_id=args.source_id)
+        logger.info("Formatted %s clip(s)", count)
     elif args.command == "retry":
         from clip_pilot.analyzer import retry_source
 
