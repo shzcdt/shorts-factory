@@ -3,6 +3,7 @@ paths:
   staging: data/staging
   clips: data/clips
   review: data/review
+  rejected: data/rejected
   published: data/published
   logs: logs
   db: data/db.sqlite3

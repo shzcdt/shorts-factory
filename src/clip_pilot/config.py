@@ -38,6 +38,6 @@ class Config:
 
     def ensure_dirs(self) -> None:
         """Create all working directories referenced in the configuration."""
-        for key in ("inbox", "staging", "clips", "review", "published", "logs"):
+        for key in ("inbox", "staging", "clips", "review", "rejected", "published", "logs"):
             self.get_path(key).mkdir(parents=True, exist_ok=True)
         self.get_path("db").parent.mkdir(parents=True, exist_ok=True)

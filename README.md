@@ -14,7 +14,7 @@ CLI-приложение, которое превращает длинные в�
 | analyze | `analyze` | ffprobe: длительность, разрешение, fps |
 | cut | `segment` | PySceneDetect находит границы сцен → создаёт клипы |
 | format | `format` | ffmpeg: нарезка, кроп до 9:16, re-encode |
-| review | *(следующая задача T12)* | ручное одобрение/отклонение |
+| review | `review` | ручное одобрение/отклонение в `data/review` |
 | publish | *(следующая задача T16)* | загрузка на YouTube |
 
 ## Установка
@@ -57,6 +57,10 @@ python -m venv .venv
 | `analyze` | — | Анализ всех источников в статусе `new` |
 | `segment` | `--min-seconds N` · `--max-seconds N` | Нарезка источников `done` на клипы (границы длины переопределяют конфиг) |
 | `format` | `--limit N` · `--source-id N` | Форматирование клипов `cut` (максимум `N`, или только одного источника) |
+| `review prepare` | `--limit N` · `--source-id N` | Перенос клипов `ready` в `data/review` (статус `review`) |
+| `review list` | — | Список клипов на ревью |
+| `review approve` | `clip_id` | Одобрить клип (`approved`) |
+| `review reject` | `clip_id` · `--reason "..."` | Отклонить клип, перенос в `data/rejected` |
 | `retry` | `source_id` | Сброс источника `failed`/`skipped` обратно в `new` |
 | `reset` | `--source-id N` | Удаление клипов источника `segmented` и возврат в `done` (только если клипы ещё `cut`) |
 
@@ -76,6 +80,7 @@ python -m venv .venv
 | | `staging` | `data/staging` | Рабочая папка после ингеста |
 | | `clips` | `data/clips` | Готовые клипы |
 | | `review` | `data/review` | Клипы на ручном ревью |
+| | `rejected` | `data/rejected` | Отклонённые клипы |
 | | `published` | `data/published` | Опубликованные |
 | | `logs` | `logs` | Логи |
 | | `db` | `data/db.sqlite3` | База данных |
@@ -98,7 +103,7 @@ python -m venv .venv
 ## Статусы
 
 **Источник** (`sources.status`): `new → done → segmented` · `failed` · `skipped`
-**Клип** (`clips.status`): `cut → formatting → ready` · `failed` · `review → approved/rejected` · `published`
+**Клип** (`clips.status`): `cut → formatting → ready → review → approved/rejected` · `failed` · `published`
 
 ## Структура проекта
 
@@ -116,6 +121,7 @@ src/clip_pilot/
   segmenter.py      # создание клипов
   ffmpeg_tools.py   # ffmpeg-конвейер (кроп, нарезка)
   formatter.py      # форматирование клипов
+  review.py         # ревью: перенос в review/, approve/reject
   migrations/       # SQL-миграции (001_initial.sql, ...)
 ```
 
