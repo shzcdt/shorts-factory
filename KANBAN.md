@@ -24,7 +24,7 @@ kanban-plugin: board
 - [x] **T5** Нарезка по сценам (PySceneDetect) → сегменты — M
 - [x] **T25** Инструменты качества: ruff + mypy + pre-commit — S · следующая после T5
 - [x] **T9** ffmpeg-конвейер: 9:16, кроп/автозум, обрезка тишины — M · критич
-- [ ] **T9a** Клипы по длительности: `segment --min-seconds/--max-seconds` + `reset --source-id` — S
+- [x] **T9a** Клипы по длительности: `segment --min-seconds/--max-seconds` + `reset --source-id` — S
 - [ ] **T12** Ревью-папка + команда `clip_pilot review` — M · критич
 - [ ] **T14** OAuth-приложение + refresh-токены (1–2 аккаунта) — M · критич
 - [ ] **T15** Хранилище аккаунтов (расширяемое) — S

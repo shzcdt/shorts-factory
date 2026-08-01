@@ -48,17 +48,23 @@ def merge_and_filter_scenes(
     scenes: list[tuple[float, float]],
     *,
     min_scene_seconds: float = 3.0,
+    min_clip_seconds: float = 15.0,
     max_clip_seconds: float = 60.0,
 ) -> list[tuple[float, float]]:
-    """Merge very short scenes and split over-long ones into clip candidates.
+    """Merge scenes into clips of a target length range.
+
+    Very short scenes are absorbed into neighbors, then scenes are greedily
+    accumulated into clips of at least min_clip_seconds, and finally over-long
+    clips are split into max_clip_seconds chunks.
 
     Args:
         scenes: List of (start, end) scene boundaries in seconds.
         min_scene_seconds: Scenes shorter than this are absorbed into a neighbor.
-        max_clip_seconds: Scenes longer than this are split into equal chunks.
+        min_clip_seconds: Target minimum clip length in seconds.
+        max_clip_seconds: Clips longer than this are split into equal chunks.
 
     Returns:
-        Filtered list of (start, end) segments in seconds.
+        List of (start, end) segments in seconds.
     """
     if not scenes:
         return []
@@ -77,8 +83,24 @@ def merge_and_filter_scenes(
         merged[1][0] = merged[0][0]
         del merged[0]
 
-    result: list[tuple[float, float]] = []
+    accumulated: list[tuple[float, float]] = []
     for start, end in merged:
+        if not accumulated:
+            accumulated.append((start, end))
+            continue
+        last_start, last_end = accumulated[-1]
+        if last_end - last_start < min_clip_seconds:
+            accumulated[-1] = (last_start, end)
+        else:
+            accumulated.append((start, end))
+
+    if len(accumulated) > 1 and accumulated[-1][1] - accumulated[-1][0] < min_clip_seconds:
+        prev_start, _ = accumulated[-2]
+        accumulated[-2] = (prev_start, accumulated[-1][1])
+        del accumulated[-1]
+
+    result: list[tuple[float, float]] = []
+    for start, end in accumulated:
         duration = end - start
         if duration > max_clip_seconds:
             chunks = int(duration / max_clip_seconds) + (1 if duration % max_clip_seconds else 0)

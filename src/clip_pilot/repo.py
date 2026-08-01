@@ -198,6 +198,21 @@ def update_clip_path(conn: sqlite3.Connection, clip_id: int, path: str) -> None:
     )
 
 
+def delete_clips_by_source(conn: sqlite3.Connection, source_id: int) -> list[dict]:
+    """Delete all clips of a source and return the removed rows.
+
+    Args:
+        conn: Open database connection.
+        source_id: Source whose clips should be deleted.
+
+    Returns:
+        List of removed clip rows (as dicts).
+    """
+    clips = get_clips_by_source(conn, source_id)
+    conn.execute("DELETE FROM clips WHERE source_id = ?", (source_id,))
+    return clips
+
+
 def create_account(
     conn: sqlite3.Connection,
     *,

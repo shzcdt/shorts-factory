@@ -55,9 +55,16 @@ python -m venv .venv
 | `watch` | — | Непрерывно следит за `inbox`, новые файлы сразу ингестит |
 | `scan` | — | Одноразовое сканирование `inbox` |
 | `analyze` | — | Анализ всех источников в статусе `new` |
-| `segment` | — | Нарезка всех источников `done` на клипы |
+| `segment` | `--min-seconds N` · `--max-seconds N` | Нарезка источников `done` на клипы (границы длины переопределяют конфиг) |
 | `format` | `--limit N` · `--source-id N` | Форматирование клипов `cut` (максимум `N`, или только одного источника) |
 | `retry` | `source_id` | Сброс источника `failed`/`skipped` обратно в `new` |
+| `reset` | `--source-id N` | Удаление клипов источника `segmented` и возврат в `done` (только если клипы ещё `cut`) |
+
+Пример: нарезать все `done`-источники на клипы 1–3 минуты:
+
+```
+& .venv\Scripts\python.exe -m clip_pilot segment --min-seconds 60 --max-seconds 180
+```
 
 Общий флаг: `--config <path>` (по умолчанию `config.yaml`).
 
@@ -72,7 +79,7 @@ python -m venv .venv
 | | `published` | `data/published` | Опубликованные |
 | | `logs` | `logs` | Логи |
 | | `db` | `data/db.sqlite3` | База данных |
-| `video` | `min_clip_seconds` | `15` | Минимальная длительность клипа (нижняя граница нарезки) |
+| `video` | `min_clip_seconds` | `15` | Минимальная длительность клипа (сцены склеиваются до этого минимума) |
 | | `max_clip_seconds` | `60` | Максимальная длительность клипа (верхняя граница) |
 | | `ffprobe_path` | `ffprobe` | Путь к ffprobe |
 | `video.scene` | `detector` | `content` | Детектор PySceneDetect: `content` / `adaptive` |

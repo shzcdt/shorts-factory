@@ -5,7 +5,7 @@ from unittest import mock
 
 from clip_pilot import db, repo
 from clip_pilot.config import Config
-from clip_pilot.segmenter import segment_done_sources, segment_source
+from clip_pilot.segmenter import reset_source, segment_done_sources, segment_source
 
 
 def make_config(root: Path) -> Config:
@@ -57,10 +57,31 @@ class TestSegmenter(unittest.TestCase):
         source = repo.get_source(self.conn, sid)
         self.assertEqual(source["status"], "segmented")
         clips = repo.get_clips_by_source(self.conn, sid)
-        self.assertEqual(len(clips), 3)
+        self.assertEqual(len(clips), 2)
         self.assertEqual(clips[0]["start_time"], 0.0)
-        self.assertEqual(clips[0]["end_time"], 10.0)
+        self.assertEqual(clips[0]["end_time"], 40.0)
         self.assertEqual(clips[0]["status"], "cut")
+
+    def test_segment_applies_min_seconds_override(self):
+        sid = self._add_done_source()
+        scenes = [(0.0, 10.0), (10.0, 20.0), (20.0, 30.0)]
+        with mock.patch("clip_pilot.segmenter.scenes.detect_scenes", return_value=scenes):
+            status = segment_source(self.conn, sid, self.config, min_seconds=25)
+        self.assertEqual(status, "segmented")
+        clips = repo.get_clips_by_source(self.conn, sid)
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(clips[0]["end_time"], 30.0)
+
+    def test_segment_applies_max_seconds_override(self):
+        sid = self._add_done_source()
+        scenes = [(0.0, 50.0)]
+        with mock.patch("clip_pilot.segmenter.scenes.detect_scenes", return_value=scenes):
+            status = segment_source(self.conn, sid, self.config, max_seconds=20)
+        self.assertEqual(status, "segmented")
+        clips = repo.get_clips_by_source(self.conn, sid)
+        self.assertEqual(len(clips), 3)
+        for clip in clips:
+            self.assertLessEqual(clip["end_time"] - clip["start_time"], 20.0 + 1e-6)
 
     def test_segment_records_events(self):
         sid = self._add_done_source()
@@ -103,6 +124,67 @@ class TestSegmenter(unittest.TestCase):
         self.assertEqual(count, 2)
         self.assertEqual(repo.count_clips_by_source(self.conn, sid1), 1)
         self.assertEqual(repo.count_clips_by_source(self.conn, sid2), 1)
+
+
+class TestResetSource(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.config = make_config(self.root)
+        self.conn = db.init_db(self.config.get_path("db"))
+
+    def tearDown(self):
+        self.conn.close()
+        self.tmp.cleanup()
+
+    def _add_segmented_source_with_clips(self, *, file_hash: str = "h") -> int:
+        sid = repo.create_source(
+            self.conn, file_path=str(self.root / "video.mp4"), file_hash=file_hash
+        )
+        repo.update_source_status(self.conn, sid, "segmented")
+        repo.create_clip(self.conn, source_id=sid, start_time=0.0, end_time=10.0)
+        repo.create_clip(self.conn, source_id=sid, start_time=10.0, end_time=30.0)
+        self.conn.commit()
+        return sid
+
+    def test_reset_deletes_clips_and_returns_to_done(self):
+        sid = self._add_segmented_source_with_clips()
+        deleted = reset_source(self.conn, sid)
+        self.assertEqual(deleted, 2)
+        self.assertEqual(repo.count_clips_by_source(self.conn, sid), 0)
+        self.assertEqual(repo.get_source(self.conn, sid)["status"], "done")
+        events = repo.get_events(self.conn, entity_type="source", entity_id=sid)
+        self.assertEqual(events[0]["event_type"], "source_reset")
+
+    def test_reset_removes_clip_files(self):
+        sid = self._add_segmented_source_with_clips()
+        clip = repo.get_clips_by_source(self.conn, sid)[0]
+        clip_path = self.root / "clips" / f"{clip['id']}.mp4"
+        clip_path.parent.mkdir(parents=True, exist_ok=True)
+        clip_path.write_bytes(b"fake")
+        repo.update_clip_path(self.conn, clip["id"], str(clip_path))
+        self.conn.commit()
+        reset_source(self.conn, sid)
+        self.assertFalse(clip_path.exists())
+
+    def test_reset_rejects_non_segmented(self):
+        sid = repo.create_source(self.conn, file_path=str(self.root / "v.mp4"))
+        self.conn.commit()
+        with self.assertRaises(ValueError):
+            reset_source(self.conn, sid)
+
+    def test_reset_rejects_formatted_clips(self):
+        sid = self._add_segmented_source_with_clips()
+        clips = repo.get_clips_by_source(self.conn, sid)
+        repo.update_clip_status(self.conn, clips[0]["id"], "ready")
+        self.conn.commit()
+        with self.assertRaises(ValueError):
+            reset_source(self.conn, sid)
+        self.assertEqual(repo.count_clips_by_source(self.conn, sid), 2)
+
+    def test_reset_unknown_source_raises(self):
+        with self.assertRaises(ValueError):
+            reset_source(self.conn, 999)
 
 
 if __name__ == "__main__":

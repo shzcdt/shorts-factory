@@ -39,7 +39,21 @@ def main() -> None:
     subparsers.add_parser("watch", help="Watch the inbox folder and ingest new videos")
     subparsers.add_parser("scan", help="Scan the inbox folder once and ingest new videos")
     subparsers.add_parser("analyze", help="Analyze new sources with ffprobe")
-    subparsers.add_parser("segment", help="Segment analyzed sources into clip candidates")
+    segment_parser = subparsers.add_parser(
+        "segment", help="Segment analyzed sources into clip candidates"
+    )
+    segment_parser.add_argument(
+        "--min-seconds",
+        type=int,
+        default=None,
+        help="Minimum clip length in seconds (overrides config)",
+    )
+    segment_parser.add_argument(
+        "--max-seconds",
+        type=int,
+        default=None,
+        help="Maximum clip length in seconds (overrides config)",
+    )
     format_parser = subparsers.add_parser("format", help="Format cut clips with ffmpeg")
     format_parser.add_argument(
         "--limit", type=int, default=None, help="Maximum number of clips to format"
@@ -49,6 +63,12 @@ def main() -> None:
     )
     retry_parser = subparsers.add_parser("retry", help="Reset a source for re-analysis")
     retry_parser.add_argument("source_id", type=int, help="Source id to reset")
+    reset_parser = subparsers.add_parser(
+        "reset", help="Delete clips of a segmented source and return it to done"
+    )
+    reset_parser.add_argument(
+        "--source-id", type=int, required=True, help="Source id whose clips to delete"
+    )
     args = parser.parse_args()
 
     if args.version:
@@ -77,7 +97,9 @@ def main() -> None:
     elif args.command == "segment":
         from clip_pilot.segmenter import segment_done_sources
 
-        count = segment_done_sources(conn, config)
+        count = segment_done_sources(
+            conn, config, min_seconds=args.min_seconds, max_seconds=args.max_seconds
+        )
         logger.info("Segmented %s source(s)", count)
     elif args.command == "format":
         from clip_pilot.formatter import format_cut_clips
@@ -91,5 +113,14 @@ def main() -> None:
             logger.info("Source %s reset. Run 'analyze' to reprocess it.", args.source_id)
         else:
             logger.warning("Source %s could not be reset", args.source_id)
+    elif args.command == "reset":
+        from clip_pilot.segmenter import reset_source
+
+        try:
+            count = reset_source(conn, args.source_id)
+        except ValueError as exc:
+            logger.warning("Reset failed: %s", exc)
+        else:
+            logger.info("Source %s reset to done, deleted %s clip(s)", args.source_id, count)
     else:
         logger.info("ClipPilot initialized. config=%s", args.config)

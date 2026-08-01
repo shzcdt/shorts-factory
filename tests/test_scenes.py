@@ -7,14 +7,30 @@ class TestMergeAndFilterScenes(unittest.TestCase):
     def test_empty_input(self):
         self.assertEqual(merge_and_filter_scenes([]), [])
 
-    def test_passes_normal_scenes_unchanged(self):
-        scenes = [(0.0, 10.0), (10.0, 30.0)]
-        self.assertEqual(merge_and_filter_scenes(scenes), scenes)
+    def test_accumulates_short_scenes_to_minimum(self):
+        scenes = [(0.0, 5.0), (5.0, 10.0), (10.0, 20.0)]
+        result = merge_and_filter_scenes(scenes, min_clip_seconds=15.0)
+        self.assertEqual(result, [(0.0, 20.0)])
+
+    def test_closes_segment_at_minimum(self):
+        scenes = [(0.0, 20.0), (20.0, 35.0)]
+        result = merge_and_filter_scenes(scenes, min_clip_seconds=15.0)
+        self.assertEqual(result, [(0.0, 20.0), (20.0, 35.0)])
+
+    def test_appends_tail_to_previous_clip(self):
+        scenes = [(0.0, 20.0), (20.0, 40.0), (40.0, 45.0)]
+        result = merge_and_filter_scenes(scenes, min_clip_seconds=15.0)
+        self.assertEqual(result, [(0.0, 20.0), (20.0, 45.0)])
+
+    def test_single_short_video_stays_as_one_clip(self):
+        scenes = [(0.0, 10.0)]
+        result = merge_and_filter_scenes(scenes, min_clip_seconds=15.0)
+        self.assertEqual(result, [(0.0, 10.0)])
 
     def test_merges_short_scene_into_previous(self):
         scenes = [(0.0, 10.0), (10.0, 12.0), (12.0, 30.0)]
-        result = merge_and_filter_scenes(scenes, min_scene_seconds=5.0)
-        self.assertEqual(result, [(0.0, 12.0), (12.0, 30.0)])
+        result = merge_and_filter_scenes(scenes, min_scene_seconds=5.0, min_clip_seconds=15.0)
+        self.assertEqual(result, [(0.0, 30.0)])
 
     def test_merges_short_first_scene_into_next(self):
         scenes = [(0.0, 2.0), (2.0, 30.0)]
@@ -23,7 +39,7 @@ class TestMergeAndFilterScenes(unittest.TestCase):
 
     def test_splits_long_scene_into_chunks(self):
         scenes = [(0.0, 90.0)]
-        result = merge_and_filter_scenes(scenes, max_clip_seconds=60.0)
+        result = merge_and_filter_scenes(scenes, min_clip_seconds=15.0, max_clip_seconds=60.0)
         self.assertEqual(result, [(0.0, 45.0), (45.0, 90.0)])
 
     def test_split_chunks_respect_max(self):
