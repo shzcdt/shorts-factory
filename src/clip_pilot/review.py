@@ -145,6 +145,40 @@ def list_clips_for_review(conn: sqlite3.Connection) -> list[dict]:
     return repo.get_clips_by_status(conn, CLIP_STATUS_REVIEW)
 
 
+def approve_all(conn: sqlite3.Connection) -> int:
+    """Approve every clip currently pending review.
+
+    Args:
+        conn: Open database connection.
+
+    Returns:
+        Number of clips approved.
+    """
+    count = 0
+    for clip in list_clips_for_review(conn):
+        if approve_clip(conn, clip["id"]) is not None:
+            count += 1
+    return count
+
+
+def reject_all(conn: sqlite3.Connection, config: Config, reason: str | None = None) -> int:
+    """Reject every clip currently pending review.
+
+    Args:
+        conn: Open database connection.
+        config: Application configuration (locates the rejected folder).
+        reason: Optional rejection reason applied to all clips.
+
+    Returns:
+        Number of clips rejected.
+    """
+    count = 0
+    for clip in list_clips_for_review(conn):
+        if reject_clip(conn, config, clip["id"], reason=reason) is not None:
+            count += 1
+    return count
+
+
 def approve_clip(conn: sqlite3.Connection, clip_id: int) -> str | None:
     """Approve a clip pending review.
 

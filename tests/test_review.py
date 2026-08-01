@@ -7,9 +7,11 @@ from clip_pilot.config import Config
 from clip_pilot.review import (
     _review_filename,
     _sanitize_stem,
+    approve_all,
     approve_clip,
     list_clips_for_review,
     prepare_for_review,
+    reject_all,
     reject_clip,
 )
 
@@ -186,6 +188,27 @@ class TestReview(unittest.TestCase):
         status = reject_clip(self.conn, self.config, cid)
         self.assertEqual(status, "rejected")
         self.assertEqual(repo.get_clip(self.conn, cid)["status"], "rejected")
+
+    def test_approve_all(self):
+        sid = self._add_source()
+        cid1 = self._add_review_clip(sid)
+        cid2 = self._add_review_clip(sid)
+        count = approve_all(self.conn)
+        self.assertEqual(count, 2)
+        self.assertEqual(repo.get_clip(self.conn, cid1)["status"], "approved")
+        self.assertEqual(repo.get_clip(self.conn, cid2)["status"], "approved")
+
+    def test_reject_all_moves_files(self):
+        sid = self._add_source()
+        cid1 = self._add_review_clip(sid)
+        cid2 = self._add_review_clip(sid)
+        count = reject_all(self.conn, self.config, reason="all bad")
+        self.assertEqual(count, 2)
+        self.assertEqual(repo.get_clip(self.conn, cid1)["status"], "rejected")
+        self.assertEqual(repo.get_clip(self.conn, cid2)["status"], "rejected")
+        self.assertEqual(repo.get_clip(self.conn, cid1)["rejected_reason"], "all bad")
+        self.assertFalse((self.config.get_path("review") / f"{cid1}.mp4").exists())
+        self.assertFalse((self.config.get_path("review") / f"{cid2}.mp4").exists())
 
 
 if __name__ == "__main__":
