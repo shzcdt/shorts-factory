@@ -19,7 +19,7 @@ kanban-plugin: board
 
 - [x] **T1** Структура проекта + venv + config.yaml + логгирование — S · критич
 - [x] **T2** SQLite-хранилище: sources, clips, accounts, posts, settings + миграции — M · критич
-- [ ] **T3** Вотчер папки (watchdog): новый файл → задача analyze — M · критич
+- [x] **T3** Вотчер папки (watchdog): новый файл → задача analyze — M · критич
 - [ ] **T4** ffprobe-метаданные: длительность, разрешение, fps — S
 - [ ] **T5** Нарезка по сценам (PySceneDetect) → сегменты — M
 - [ ] **T9** ffmpeg-конвейер: 9:16, кроп/автозум, обрезка тишины — M · критич

@@ -168,7 +168,7 @@ def get_events(conn: sqlite3.Connection, *, entity_type: str | None = None,
         params.append(entity_id)
     if where:
         query += " WHERE " + " AND ".join(where)
-    query += " ORDER BY created_at DESC LIMIT ?"
+    query += " ORDER BY id DESC LIMIT ?"
     params.append(limit)
     rows = conn.execute(query, params).fetchall()
     return [dict(r) for r in rows]

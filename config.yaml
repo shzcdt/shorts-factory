@@ -1,5 +1,6 @@
 paths:
   inbox: data/inbox
+  staging: data/staging
   clips: data/clips
   review: data/review
   published: data/published
@@ -10,6 +11,12 @@ video:
   max_clip_seconds: 60
   fps: 30
   min_clip_seconds: 15
+
+watcher:
+  scan_interval_seconds: 3
+  settle_seconds: 2
+  hash_chunk_mb: 4
+  extensions: [.mp4, .mov, .mkv, .avi, .webm, .flv, .m4v]
 
 logging:
   level: INFO
