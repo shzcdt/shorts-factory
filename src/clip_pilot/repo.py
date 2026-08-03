@@ -236,6 +236,31 @@ def get_accounts(conn: sqlite3.Connection, status: str = "active") -> list[dict]
     return [dict(r) for r in rows]
 
 
+def get_account_by_name(conn: sqlite3.Connection, name: str) -> dict | None:
+    """Return an account by name, or None if not found."""
+    row = conn.execute("SELECT * FROM accounts WHERE name = ?", (name,)).fetchone()
+    return dict(row) if row else None
+
+
+def update_account_after_publish(conn: sqlite3.Connection, account_id: int) -> None:
+    """Bump the daily post counter and mark the account as used."""
+    conn.execute(
+        "UPDATE accounts SET posts_today = posts_today + 1, last_used_at = CURRENT_TIMESTAMP "
+        "WHERE id = ?",
+        (account_id,),
+    )
+
+
+def count_posts_today(conn: sqlite3.Connection, account_id: int) -> int:
+    """Return how many posts an account published today (UTC)."""
+    row = conn.execute(
+        "SELECT COUNT(*) AS n FROM posts WHERE account_id = ? "
+        "AND published_at IS NOT NULL AND date(published_at) = date('now')",
+        (account_id,),
+    ).fetchone()
+    return row["n"] if row else 0
+
+
 def create_post(
     conn: sqlite3.Connection, *, clip_id: int, account_id: int, scheduled_at: str | None = None
 ) -> int:
@@ -243,6 +268,23 @@ def create_post(
     cur = conn.execute(
         "INSERT INTO posts (clip_id, account_id, scheduled_at) VALUES (?, ?, ?)",
         (clip_id, account_id, scheduled_at),
+    )
+    return _insert_rowid(cur)
+
+
+def create_published_post(
+    conn: sqlite3.Connection,
+    *,
+    clip_id: int,
+    account_id: int,
+    youtube_video_id: str,
+    url: str | None = None,
+) -> int:
+    """Create a post record already marked as published and return its id."""
+    cur = conn.execute(
+        "INSERT INTO posts (clip_id, account_id, youtube_video_id, status, published_at, url) "
+        "VALUES (?, ?, ?, 'published', CURRENT_TIMESTAMP, ?)",
+        (clip_id, account_id, youtube_video_id, url),
     )
     return _insert_rowid(cur)
 

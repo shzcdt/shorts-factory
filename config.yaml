@@ -5,6 +5,7 @@ paths:
   review: data/review
   rejected: data/rejected
   published: data/published
+  auth: auth
   logs: logs
   db: data/db.sqlite3
 
@@ -34,3 +35,14 @@ logging:
 
 review:
   default_mode: manual
+
+playwright:
+  headless: false
+  channel: msedge
+  user_agent: ""
+  timeout_seconds: 300
+  slow_mo_ms: 0
+
+upload:
+  max_videos_per_day: 5
+  delay_between_seconds: [45, 120]

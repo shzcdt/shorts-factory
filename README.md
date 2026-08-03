@@ -15,7 +15,7 @@ CLI-приложение, которое превращает длинные в�
 | cut | `segment` | PySceneDetect находит границы сцен → создаёт клипы |
 | format | `format` | ffmpeg: нарезка, кроп до 9:16, re-encode |
 | review | `review` | ручное одобрение/отклонение в `data/review` |
-| publish | *(следующая задача T16)* | загрузка на YouTube |
+| publish | `publish` | загрузка на YouTube через Playwright-сессию |
 
 ## Установка
 
@@ -43,6 +43,29 @@ python -m venv .venv
 
 Готовые клипы — в `data/clips/<clip_id>.mp4` (1080x1920).
 
+## Публикация (Playwright)
+
+Загрузка идёт через браузер (Playwright) с сохранённой сессией, без Google Cloud / OAuth.
+
+1. Установи Playwright и Chromium:
+   ```powershell
+   & .venv\Scripts\python.exe -m pip install playwright
+   & .venv\Scripts\python.exe -m playwright install chromium
+   ```
+2. Сохрани сессию (откроется окно браузера — войди вручную, потом Enter):
+   ```powershell
+   & .venv\Scripts\python.exe -m clip_pilot auth login --name main
+   ```
+   Сессия сохранится в `auth/main.json`.
+3. Загружай одобренные клипы:
+   ```powershell
+   & .venv\Scripts\python.exe -m clip_pilot publish --account main --limit 1
+   ```
+
+Заголовок клипа: `{имя источника} #{номер клипа}` (например `my_interview #3`). После публикации клип получает статус `published`, файл переносится в `data/published`, в БД создаётся запись `post` с id видео на YouTube.
+
+⚠️ Это неофициальный путь (браузерная автоматизация против ToS) — есть риск бана аккаунта. Используй с осторожностью: разумные лимиты в день, реальные задержки, прогрев канала. Селекторы страницы загрузки могут ломаться при обновлениях YouTube — при ошибке дамп HTML/скриншот сохраняются в `logs/`.
+
 ## Команды CLI
 
 ```
@@ -61,6 +84,10 @@ python -m venv .venv
 | `review list` | — | Список клипов на ревью |
 | `review approve` | `clip_id` | Одобрить клип (`approved`) |
 | `review reject` | `clip_id` · `--reason "..."` | Отклонить клип, перенос в `data/rejected` |
+| `auth login` | `--name NAME` | Открыть браузер, войти на YouTube вручную, сохранить сессию в `auth/NAME.json` |
+| `auth status` | — | Список аккаунтов + валидность сессий |
+| `auth logout` | `--name NAME` | Удалить сохранённую сессию |
+| `publish` | `--account NAME` · `--limit N` | Загрузить одобренные клипы на YouTube (Playwright) |
 | `retry` | `source_id` | Сброс источника `failed`/`skipped` обратно в `new` |
 | `reset` | `--source-id N` | Удаление клипов источника `segmented` и возврат в `done` (только если клипы ещё `cut`) |
 
@@ -82,6 +109,7 @@ python -m venv .venv
 | | `review` | `data/review` | Клипы на ручном ревью |
 | | `rejected` | `data/rejected` | Отклонённые клипы |
 | | `published` | `data/published` | Опубликованные |
+| | `auth` | `auth` | Сохранённые сессии аккаунтов (Playwright) |
 | | `logs` | `logs` | Логи |
 | | `db` | `data/db.sqlite3` | База данных |
 | `video` | `min_clip_seconds` | `15` | Минимальная длительность клипа (сцены склеиваются до этого минимума) |
@@ -99,6 +127,13 @@ python -m venv .venv
 | | `extensions` | `.mp4 .mov ...` | Какие расширения считать видео |
 | `logging` | `level` | `INFO` | Уровень логов |
 | `review` | `default_mode` | `manual` | Режим ревью для нового источника: `manual` / `auto` |
+| `playwright` | `headless` | `false` | Браузер без окна в проде; `false` для отладки и первого логина |
+| | `channel` | `chrome` | Использовать реальный Chrome (меньше блоков при входе), а не встроенный Chromium |
+| | `user_agent` | `""` | Свой User-Agent (например, от обычного Chrome), если нужен |
+| | `timeout_seconds` | `300` | Сколько ждать загрузки/публикации (макс) |
+| | `slow_mo_ms` | `0` | Замедление действий браузера (для отладки) |
+| `upload` | `max_videos_per_day` | `5` | Дневной лимит публикаций на аккаунт |
+| | `delay_between_seconds` | `[45, 120]` | Случайная пауза между загрузками |
 
 ## Статусы
 
@@ -122,6 +157,8 @@ src/clip_pilot/
   ffmpeg_tools.py   # ffmpeg-конвейер (кроп, нарезка)
   formatter.py      # форматирование клипов
   review.py         # ревью: перенос в review/, approve/reject
+  uploader.py       # оркестратор публикации (Protocol Uploader)
+  playwright_uploader.py  # загрузка через Playwright-сессию
   migrations/       # SQL-миграции (001_initial.sql, ...)
 ```
 
@@ -139,3 +176,4 @@ src/clip_pilot/
 - `center_crop` из горизонтального видео теряет до ~72% кадра по бокам (для вертикальных/квадратных — ок). Умный кроп — M2.
 - fps не пересэмплируется — сохраняется исходный, YouTube конвертирует сам.
 - Обрезка тишины (silenceremove) запланирована на M2.
+- Публикация через Playwright — неофициальный путь (риск бана), селекторы страницы загрузки хрупкие.

@@ -96,6 +96,20 @@ def main() -> None:
     reject_parser.add_argument(
         "clip_id", type=int, nargs="?", default=None, help="Clip id to reject"
     )
+    auth_parser = subparsers.add_parser(
+        "auth", help="Manage YouTube accounts (saved browser sessions)"
+    )
+    auth_sub = auth_parser.add_subparsers(dest="auth_command")
+    login_parser = auth_sub.add_parser(
+        "login", help="Sign in to YouTube in a browser and save the session"
+    )
+    login_parser.add_argument("--name", type=str, required=True, help="Account name")
+    auth_sub.add_parser("status", help="List accounts and session validity")
+    logout_parser = auth_sub.add_parser("logout", help="Delete a saved session")
+    logout_parser.add_argument("--name", type=str, required=True, help="Account name")
+    publish_parser = subparsers.add_parser("publish", help="Publish approved clips to YouTube")
+    publish_parser.add_argument("--account", type=str, required=True, help="Account name")
+    publish_parser.add_argument("--limit", type=int, default=None, help="Max clips to publish")
     args = parser.parse_args()
 
     if args.version:
@@ -200,5 +214,50 @@ def main() -> None:
                         logger.warning("Clip %s is not pending review", args.clip_id)
         else:
             logger.info("Specify a review subcommand: prepare | list | approve | reject")
+    elif args.command == "auth":
+        from clip_pilot import playwright_uploader, repo
+
+        if args.auth_command == "login":
+            if repo.get_account_by_name(conn, args.name) is None:
+                repo.create_account(conn, name=args.name)
+                conn.commit()
+                logger.info("Account %r created", args.name)
+            playwright_uploader.save_session(config, args.name)
+        elif args.auth_command == "status":
+            accounts = repo.get_accounts(conn)
+            if not accounts:
+                logger.info("No accounts yet. Run 'auth login --name <name>'")
+            auth_dir = config.get_path("auth")
+            for acc in accounts:
+                session = auth_dir / f"{acc['name']}.json"
+                state = "ok" if session.exists() else "no session"
+                print(
+                    f"name={acc['name']} status={acc['status']} "
+                    f"session={state} posts_today={acc['posts_today']}"
+                )
+        elif args.auth_command == "logout":
+            session_path = config.get_path("auth") / f"{args.name}.json"
+            if session_path.exists():
+                session_path.unlink()
+                logger.info("Session %s removed", args.name)
+            else:
+                logger.warning("No session found for %s", args.name)
+        else:
+            logger.info("Specify an auth subcommand: login | status | logout")
+    elif args.command == "publish":
+        from clip_pilot.uploader import publish_approved_clips
+
+        try:
+            results = publish_approved_clips(
+                conn, config, account_name=args.account, limit=args.limit
+            )
+        except ValueError as exc:
+            logger.warning("%s", exc)
+        else:
+            logger.info(
+                "Publish done: published=%s failed=%s", results["published"], results["failed"]
+            )
+            for err in results["errors"]:
+                logger.error("  clip %s: %s", err["clip_id"], err["error"])
     else:
         logger.info("ClipPilot initialized. config=%s", args.config)
