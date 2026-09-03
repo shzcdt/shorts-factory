@@ -11,6 +11,7 @@ screenshot and the page HTML are dumped into the logs directory for debugging.
 
 import logging
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -20,18 +21,31 @@ from clip_pilot.config import Config
 logger = logging.getLogger("clip_pilot.playwright_uploader")
 
 UPLOAD_URL = "https://www.youtube.com/upload"
+STUDIO_URL_PREFIX = "https://studio.youtube.com"
 
-# Fragile, locale-sensitive selectors for the YouTube upload studio.
+# Locale-independent selectors for the YouTube upload studio. Everything is
+# matched by element id/name attributes, never by visible text, so the flow
+# survives any studio interface language.
 SELECTOR_FILE_INPUT = "input[type='file']"
-SELECTOR_TITLE = "div[aria-label='Add a title']"
-SELECTOR_NOT_KIDS = "paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']"
+# The title field is a contenteditable div; aria-labels here are localized.
+SELECTOR_TITLE_CANDIDATES = (
+    "ytcp-social-suggestions-textbox#title-textarea #textbox",
+    "ytcp-uploads-dialog #textbox",
+)
+SELECTOR_NOT_KIDS = "[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']"
 SELECTOR_DONE_BUTTON = "ytcp-button#done-button"
 SELECTOR_CONFIRM_BUTTON = "ytcp-button#confirm-button"
 SELECTOR_VIDEO_LINK = "a[href*='/watch?v=']"
+SELECTOR_NEXT_BUTTON = "ytcp-button#next-button"
+SELECTOR_PUBLIC_RADIO = "[name='PUBLIC']"
 
 
 class VerificationRequired(RuntimeError):
     """Raised when YouTube asks the user to prove they are human."""
+
+
+class LoginLost(RuntimeError):
+    """Raised when the saved session no longer signs the user in."""
 
 
 def _sync_playwright() -> Any:
@@ -42,10 +56,39 @@ def _sync_playwright() -> Any:
 
 
 def _human_typing(page: Any, selector: str, text: str) -> None:
-    """Click a field and type slowly, like a human would."""
+    """Click a field, select all existing text and type slowly.
+
+    Select-all uses Cmd on macOS and Ctrl elsewhere (YouTube's select-all
+    shortcut follows the platform convention).
+    """
     page.click(selector)
-    page.keyboard.press("Control+a")
+    select_all = "Meta+a" if sys.platform == "darwin" else "Control+a"
+    page.keyboard.press(select_all)
+    page.keyboard.press("Delete")
     page.keyboard.type(text, delay=60)
+
+
+def _is_logged_out(url: str) -> bool:
+    """Return True if the browser was redirected to a Google sign-in page."""
+    return "accounts.google.com" in url or "ServiceLogin" in url
+
+
+def _fill_title(page: Any, title: str, timeout_ms: int) -> None:
+    """Type the title into the first title selector present in the dialog."""
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        for selector in SELECTOR_TITLE_CANDIDATES:
+            field = page.locator(selector)
+            if field.count() > 0:
+                field.first.wait_for(state="visible", timeout=10000)
+                _human_typing(page, selector, title)
+                logger.info("Title entered via %s: %s", selector, title)
+                return
+        page.wait_for_timeout(1000)
+    raise RuntimeError(
+        "Title field not found; upload studio layout may have changed "
+        "(selectors: " + ", ".join(SELECTOR_TITLE_CANDIDATES) + ")"
+    )
 
 
 def _dump_debug(config: Config, page: Any) -> None:
@@ -81,8 +124,16 @@ def _launch_kwargs(config: Config, *, headed: bool) -> dict:
 
 
 def _context_kwargs(config: Config, *, storage_state: str | None = None) -> dict:
-    """Build browser.new_context kwargs, applying the configured user agent."""
-    kwargs: dict = {"viewport": {"width": 1280, "height": 800}}
+    """Build browser.new_context kwargs.
+
+    The locale is pinned to en-US so YouTube renders the studio in English;
+    all upload selectors are locale-independent anyway, but English keeps the
+    debug HTML dumps readable.
+    """
+    kwargs: dict = {
+        "viewport": {"width": 1280, "height": 800},
+        "locale": config.playwright.get("locale", "en-US"),
+    }
     if storage_state is not None:
         kwargs["storage_state"] = storage_state
     user_agent = config.playwright.get("user_agent")
@@ -113,6 +164,32 @@ def save_session(config: Config, account_name: str) -> None:
         logger.info("Session saved to %s", session_path)
         context.close()
         browser.close()
+
+
+def session_valid(config: Config, account_name: str) -> bool:
+    """Check whether a saved session still signs the user into YouTube.
+
+    Opens youtube.com with the stored cookies (never headless-undetectable
+    tricks needed for this) and returns False if YouTube redirects to the
+    Google sign-in page or the account avatar is missing.
+    """
+    session_path = config.get_path("auth") / f"{account_name}.json"
+    if not session_path.exists():
+        return False
+
+    with _sync_playwright() as p:
+        browser = p.chromium.launch(**_launch_kwargs(config, headed=False))
+        context = browser.new_context(**_context_kwargs(config, storage_state=str(session_path)))
+        page = context.new_page()
+        try:
+            page.goto("https://www.youtube.com/account", timeout=60000)
+            if _is_logged_out(page.url):
+                return False
+            avatar = page.locator("button#avatar-btn, img#avatar-img")
+            return bool(avatar.count() > 0)
+        finally:
+            context.close()
+            browser.close()
 
 
 class PlaywrightUploader:
@@ -168,33 +245,76 @@ class PlaywrightUploader:
     def _do_upload(self, page: Any, video_path: Path, title: str, timeout_ms: int) -> str:
         logger.info("Opening upload page")
         page.goto(UPLOAD_URL, timeout=60000)
+        if _is_logged_out(page.url):
+            raise LoginLost(
+                "Saved session is not signed in. "
+                f"Run 'auth login --name {self.account_name}' again. URL: {page.url}"
+            )
 
+        # The file input appears only after the studio iframe finishes loading.
         file_input = page.locator(SELECTOR_FILE_INPUT)
-        if file_input.count() == 0:
-            raise RuntimeError("Upload page not loaded (not signed in?)")
-        file_input.set_input_files(str(video_path))
+        try:
+            file_input.first.wait_for(state="attached", timeout=30000)
+        except Exception as exc:
+            if _is_logged_out(page.url):
+                raise LoginLost(
+                    f"Session expired. Run 'auth login --name {self.account_name}' again."
+                ) from exc
+            raise RuntimeError("Upload page did not load (no file input found)") from exc
+        file_input.first.set_input_files(str(video_path))
         logger.info("File selected, waiting for the studio to load")
 
-        title_field = page.locator(SELECTOR_TITLE)
-        title_field.wait_for(state="visible", timeout=timeout_ms)
-        _human_typing(page, SELECTOR_TITLE, title)
-        logger.info("Title entered: %s", title)
+        _fill_title(page, title, timeout_ms)
 
-        not_kids = page.locator(SELECTOR_NOT_KIDS)
-        if not_kids.count() > 0:
-            not_kids.click()
+        self._finish_wizard(page, timeout_ms)
+        logger.info("Save clicked, confirming")
 
-        done = page.locator(SELECTOR_DONE_BUTTON)
-        done.wait_for(state="visible", timeout=timeout_ms)
-        done.click()
         confirm = page.locator(SELECTOR_CONFIRM_BUTTON)
-        confirm.wait_for(state="visible", timeout=60000)
-        confirm.click()
+        try:
+            confirm.first.wait_for(state="visible", timeout=30000)
+            confirm.first.click()
+        except Exception:
+            # Some studio versions publish directly after Save.
+            logger.info("No confirm dialog, assuming direct publish")
         logger.info("Publishing")
 
         video_id = self._extract_video_id(page, timeout_ms)
         logger.info("Published, video id: %s", video_id)
         return video_id
+
+    def _finish_wizard(self, page: Any, timeout_ms: int) -> None:
+        """Walk the multi-step upload wizard until Save becomes clickable.
+
+        The studio shows a sequence of steps (Details → Video elements →
+        Checks → Visibility), each with a Next button; the last step has the
+        Save button. While a video is still uploading/processing Next stays
+        disabled, so this loop just keeps clicking whatever is available.
+
+        The mandatory "made for kids" radio is (re-)clicked on every pass:
+        it may appear later than the first pass, and clicking an already
+        selected radio is harmless.
+        """
+        deadline = time.monotonic() + timeout_ms / 1000
+        while time.monotonic() < deadline:
+            not_kids = page.locator(SELECTOR_NOT_KIDS)
+            if not_kids.count() > 0 and not_kids.first.is_visible():
+                not_kids.first.click()
+
+            public = page.locator(SELECTOR_PUBLIC_RADIO)
+            if public.count() > 0 and public.first.is_visible():
+                public.first.click()
+
+            done = page.locator(f"{SELECTOR_DONE_BUTTON}:not([disabled])")
+            if done.count() > 0 and done.first.is_visible():
+                done.first.click()
+                return
+
+            nxt = page.locator(f"{SELECTOR_NEXT_BUTTON}:not([disabled])")
+            if nxt.count() > 0 and nxt.first.is_visible():
+                nxt.first.click()
+                logger.info("Wizard: Next clicked")
+            page.wait_for_timeout(2000)
+        raise RuntimeError("Upload wizard did not reach the Save step in time")
 
     def _extract_video_id(self, page: Any, timeout_ms: int) -> str:
         """Wait for the published video to appear and parse its id."""

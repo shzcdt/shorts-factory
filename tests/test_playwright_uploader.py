@@ -5,8 +5,11 @@ from unittest import mock
 
 from clip_pilot.config import Config
 from clip_pilot.playwright_uploader import (
+    LoginLost,
     PlaywrightUploader,
+    _fill_title,
     save_session,
+    session_valid,
 )
 
 
@@ -142,6 +145,7 @@ class TestPlaywrightUploader(unittest.TestCase):
 
     def test_do_upload_runs_through_publication(self):
         page = mock.MagicMock()
+        page.url = "https://studio.youtube.com/channel/abc/uploads"
         file_input = mock.MagicMock()
         file_input.count.return_value = 1
         page.locator.side_effect = lambda sel: file_input
@@ -149,9 +153,32 @@ class TestPlaywrightUploader(unittest.TestCase):
         with mock.patch.object(uploader, "_extract_video_id", return_value="vid99") as extract:
             video_id = uploader._do_upload(page, Path("clip.mp4"), "Title", timeout_ms=5000)
         self.assertEqual(video_id, "vid99")
-        file_input.set_input_files.assert_called_once_with("clip.mp4")
+        file_input.first.set_input_files.assert_called_once_with("clip.mp4")
         extract.assert_called_once()
         self.assertEqual(page.goto.call_args[0][0], "https://www.youtube.com/upload")
+
+    def test_do_upload_raises_when_logged_out(self):
+        page = mock.MagicMock()
+        page.url = "https://accounts.google.com/ServiceLogin?continue=..."
+        uploader = PlaywrightUploader(self.config, account_name="main")
+        with self.assertRaises(LoginLost):
+            uploader._do_upload(page, Path("clip.mp4"), "Title", timeout_ms=5000)
+
+    def test_fill_title_falls_back_to_second_selector(self):
+        page = mock.MagicMock()
+
+        def locator(sel: str):
+            entry = mock.MagicMock()
+            entry.count.return_value = 0 if "title-textarea" in sel else 1
+            return entry
+
+        page.locator.side_effect = locator
+        _fill_title(page, "My title", timeout_ms=5000)
+        typed = page.keyboard.type.call_args[0][0]
+        self.assertEqual(typed, "My title")
+
+    def test_session_valid_returns_false_without_session(self):
+        self.assertFalse(session_valid(self.config, "main"))
 
 
 if __name__ == "__main__":

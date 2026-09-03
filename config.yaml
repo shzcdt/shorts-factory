@@ -38,7 +38,8 @@ review:
 
 playwright:
   headless: false
-  channel: msedge
+  channel: ""
+  locale: en-US
   user_agent: ""
   timeout_seconds: 300
   slow_mo_ms: 0
