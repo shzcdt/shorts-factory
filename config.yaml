@@ -47,3 +47,8 @@ playwright:
 upload:
   max_videos_per_day: 5
   delay_between_seconds: [45, 120]
+
+telegram:
+  allowed_users: [1099856732]
+  notify_chat_id: ""
+  max_inbox_mb: 20

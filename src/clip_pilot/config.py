@@ -19,6 +19,7 @@ class Config:
         self.watcher = data.get("watcher", {})
         self.upload = data.get("upload", {})
         self.playwright = data.get("playwright", {})
+        self.telegram = data.get("telegram", {})
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_CONFIG_PATH) -> "Config":

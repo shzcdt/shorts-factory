@@ -110,6 +110,7 @@ def main() -> None:
     publish_parser = subparsers.add_parser("publish", help="Publish approved clips to YouTube")
     publish_parser.add_argument("--account", type=str, required=True, help="Account name")
     publish_parser.add_argument("--limit", type=int, default=None, help="Max clips to publish")
+    subparsers.add_parser("bot", help="Run the Telegram bot (TELEGRAM_BOT_TOKEN required)")
     args = parser.parse_args()
 
     if args.version:
@@ -259,5 +260,9 @@ def main() -> None:
             )
             for err in results["errors"]:
                 logger.error("  clip %s: %s", err["clip_id"], err["error"])
+    elif args.command == "bot":
+        from clip_pilot.telegram_bot import run_bot
+
+        run_bot(args.config)
     else:
         logger.info("ClipPilot initialized. config=%s", args.config)
